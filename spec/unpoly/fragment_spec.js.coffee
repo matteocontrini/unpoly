@@ -3339,27 +3339,29 @@ describe 'up.fragment', ->
 
         describe 'window title', ->
 
-          it "sets the document title to the response <title>", asyncSpec (next) ->
-            $fixture('.container').text('old container text')
+          it "sets the document title to the response <title>", ->
+            fixture('.container', text: 'old container text')
             up.render('.container', url: '/path', history: true)
 
-            next =>
-              @respondWith """
-                <html>
-                  <head>
-                    <title>Title from HTML</title>
-                  </head>
-                  <body>
-                    <div class='container'>
-                      new container text
-                    </div>
-                  </body>
-                </html>
-              """
+            await wait()
 
-            next =>
-              expect('.container').toHaveText('new container text')
-              expect(document.title).toBe('Title from HTML')
+            jasmine.respondWith """
+              <html>
+                <head>
+                  <title>Title from HTML</title>
+                </head>
+                <body>
+                  <div class='container'>
+                    new container text
+                  </div>
+                </body>
+              </html>
+            """
+
+            await wait()
+
+            expect('.container').toHaveText('new container text')
+            expect(document.title).toBe('Title from HTML')
 
           it "sets the document title to a JSON-encoded X-Up-Title header in the response", asyncSpec (next) ->
             fixture('.container', text: 'old container text')
@@ -3468,30 +3470,59 @@ describe 'up.fragment', ->
               expect('.container').toHaveText('new container text')
               expect(document.title).toBe(oldTitle)
 
-          it "does not extract the title from the response or HTTP header with { title: false }", asyncSpec (next) ->
-            $fixture('.container').text('old container text')
+          it "does not extract the title from the response or HTTP header with { title: false }", ->
+            fixture('.container', text: 'old container text')
             oldTitle = document.title
             up.render('.container', url: '/path', history: true, title: false)
 
-            next =>
-              @respondWith
-                responseHeaders:
-                  'X-Up-Title': '"Title from header"'
-                responseText: """
-                <html>
-                  <head>
-                    <title>Title from HTML</title>
-                  </head>
-                  <body>
-                    <div class='container'>
-                      new container text
-                    </div>
-                  </body>
-                </html>
-              """
+            await wait()
 
-            next =>
-              expect(document.title).toEqual(oldTitle)
+            jasmine.respondWith
+              responseHeaders:
+                'X-Up-Title': '"Title from header"'
+              responseText: """
+              <html>
+                <head>
+                  <title>Title from HTML</title>
+                </head>
+                <body>
+                  <div class='container'>
+                    new container text
+                  </div>
+                </body>
+              </html>
+            """
+
+            await wait()
+
+            expect(document.title).toEqual(oldTitle)
+
+          it "does not extract the title from the response or HTTP header with { history: false }", ->
+            fixture('.container', text: 'old container text')
+            oldTitle = document.title
+            up.render('.container', url: '/path', history: false)
+
+            await wait()
+
+            jasmine.respondWith
+              responseHeaders:
+                'X-Up-Title': '"Title from header"'
+              responseText: """
+              <html>
+                <head>
+                  <title>Title from HTML</title>
+                </head>
+                <body>
+                  <div class='container'>
+                    new container text
+                  </div>
+                </body>
+              </html>
+            """
+
+            await wait()
+
+            expect(document.title).toEqual(oldTitle)
 
           it 'allows to pass an explicit title as { title } option', asyncSpec (next) ->
             $fixture('.container').text('old container text')
@@ -3540,6 +3571,260 @@ describe 'up.fragment', ->
             next =>
               expect('.container').toHaveText('new container text')
               expect(calls).toEqual ['set location', 'set title']
+
+      fdescribe 'history-related <meta> and <link> elements in the <head>', ->
+
+        it "updates meta elements from the response", ->
+          e.affix(document.head, 'link[rel="canonical"][href="/old-canonical"]')
+          e.affix(document.head, 'meta[name="description"][content="old description"]')
+
+          fixture('.container', text: 'old container text')
+          up.render('.container', url: '/path', history: true)
+
+          await wait()
+
+          jasmine.respondWith """
+              <html>
+                <head>
+                  <link rel='canonical' href='/new-canonical'>
+                  <meta name='description' content='new description'>
+                </head>
+                <body>
+                  <div class='container'>
+                    new container text
+                  </div>
+                </body>
+              </html>
+            """
+
+          await wait()
+
+          expect(document.head).not.toHaveSelector('link[rel="canonical"][href="/old-canonical"]')
+          expect(document.head).toHaveSelector('link[rel="canonical"][href="/new-canonical"]')
+          expect(document.head).not.toHaveSelector('meta[name="description"][content="old description"]')
+          expect(document.head).toHaveSelector('meta[name="description"][content="new description"]')
+
+        it "does not update meta elements with [up-meta=false]", ->
+          e.affix(document.head, 'link[rel="canonical"][href="/old-canonical"][up-meta="false"]')
+          e.affix(document.head, 'meta[name="description"][content="old description"]')
+
+          fixture('.container', text: 'old container text')
+          up.render('.container', url: '/path', history: true)
+
+          await wait()
+
+          jasmine.respondWith """
+              <html>
+                <head>
+                  <link rel='canonical' href='/new-canonical' up-meta='false'>
+                  <meta name='description' content='new description'>
+                </head>
+                <body>
+                  <div class='container'>
+                    new container text
+                  </div>
+                </body>
+              </html>
+            """
+
+          await wait()
+
+          expect(document.head).toHaveSelector('link[rel="canonical"][href="/old-canonical"]')
+          expect(document.head).not.toHaveSelector('link[rel="canonical"][href="/new-canonical"]')
+          expect(document.head).not.toHaveSelector('meta[name="description"][content="old description"]')
+          expect(document.head).toHaveSelector('meta[name="description"][content="new description"]')
+
+        it 'does not update meta elements with { history: false }', ->
+          e.affix(document.head, 'link[rel="canonical"][href="/old-canonical"]')
+          e.affix(document.head, 'meta[name="description"][content="old description"]')
+
+          fixture('.container', text: 'old container text')
+          up.render('.container', url: '/path', history: false)
+
+          await wait()
+
+          jasmine.respondWith """
+              <html>
+                <head>
+                  <link rel='canonical' href='/new-canonical'>
+                  <meta name='description' content='old description'>
+                </head>
+                <body>
+                  <div class='container'>
+                    new container text
+                  </div>
+                </body>
+              </html>
+            """
+
+          await wait()
+
+          expect(document.head).toHaveSelector('link[rel="canonical"][href="/old-canonical"]')
+          expect(document.head).toHaveSelector('meta[name="description"][content="old description"]')
+
+        it 'does not remove current meta elements if the response has no <head>', ->
+          e.affix(document.head, 'link[rel="canonical"][href="/old-canonical"]')
+          e.affix(document.head, 'meta[name="description"][content="old description"]')
+
+          fixture('.container', text: 'old container text')
+          up.render('.container', url: '/path', history: true)
+
+          await wait()
+
+          jasmine.respondWith """
+              <html>
+                <body>
+                  <div class='container'>
+                    new container text
+                  </div>
+                </body>
+              </html>
+            """
+
+          await wait()
+
+          expect(document.head).toHaveSelector('link[rel="canonical"][href="/old-canonical"]')
+          expect(document.head).toHaveSelector('meta[name="description"][content="old description"]')
+
+      fdescribe 'assets in the head', ->
+
+        fit 'does not update linked stylesheets in the <head>', ->
+          style = e.createFromSelector('link[rel="stylesheet"][href="styles-1.css"]')
+          registerFixture(style)
+          document.head.append(style)
+
+          fixture('.container', text: 'old container text')
+          up.render('.container', location: '/path', history: true, document: """
+            <html>
+              <head>
+                <link rel='stylesheet' href='styles-2.css'>
+              </head>
+              <body>
+                <div class='container'>
+                  new container text
+                </div>
+              </body>
+            </html>
+          """)
+
+          await wait()
+
+          expect('.container').toHaveText('new container text')
+          expect(document.head).toHaveSelector('link[rel="stylesheet"][href="styles-1.css"]')
+
+        fit 'does not update linked scripts in the <head>', ->
+          style = e.createFromSelector('script[src="scripts-1.js"]')
+          registerFixture(style)
+          document.head.append(style)
+
+          fixture('.container', text: 'old container text')
+          up.render('.container', location: '/path', history: true, document: """
+            <html>
+              <head>
+                <script src='scripts-2.js'></script>
+              </head>
+              <body>
+                <div class='container'>
+                  new container text
+                </div>
+              </body>
+            </html>
+          """)
+
+          await wait()
+
+          expect('.container').toHaveText('new container text')
+          expect(document.head).toHaveSelector('script[src="scripts-1.js"]')
+
+        fit 'emits an up:assets:changed event if linked assets differ between <head> and <response>', ->
+          listener = jasmine.createSpy('up:assets:changed listener')
+          up.on('up:assets:changed', listener)
+
+          style = e.createFromSelector('script[src="scripts-1.js"]')
+          registerFixture(style)
+          document.head.append(style)
+
+          fixture('.container', text: 'old container text')
+          up.render('.container', location: '/path', history: true, document: """
+            <html>
+              <head>
+                <script src='scripts-2.js'></script>
+              </head>
+              <body>
+                <div class='container'>
+                  new container text
+                </div>
+              </body>
+            </html>
+          """)
+
+          await wait()
+
+          expect('.container').toHaveText('new container text')
+
+          expect(listener).toHaveBeenCalled()
+          event = listener.calls.mostRecent()[0]
+          expect(event.type).toBe('up:assets:changed')
+          expect(event.renderOptions).toEqual(jasmine.any(Object))
+          expect(event.renderOptions.location).toBe('/path')
+          expect(event.oldAssets.length).toBe(1)
+          expect(event.newAssets.length).toBe(1)
+          expect(event.oldAssets[0].outerHTML).toBe('<script src="scripts-1.js">')
+          expect(event.newAssets[0].outerHTML).toBe('<script src="scripts-2.js">')
+
+        fit 'does not emit up:assets:changed if the only changed asset has [up-asset=false]', ->
+          listener = jasmine.createSpy('up:assets:changed listener')
+          up.on('up:assets:changed', listener)
+
+          style = e.createFromSelector('script[src="scripts-1.js"][up-asset="false"]')
+          registerFixture(style)
+          document.head.append(style)
+
+          fixture('.container', text: 'old container text')
+
+          up.render('.container', location: '/path', history: true, document: """
+            <html>
+              <head>
+                <script src='scripts-2.js' up-asset='false'></script>
+              </head>
+              <body>
+                <div class='container'>
+                  new container text
+                </div>
+              </body>
+            </html>
+          """)
+
+          await wait()
+
+          expect('.container').toHaveText('new container text')
+
+          expect(listener).not.toHaveBeenCalled()
+
+        fit 'does not emit up:assets:changed if the response has no <head>', ->
+          listener = jasmine.createSpy('up:assets:changed listener')
+          up.on('up:assets:changed', listener)
+
+          style = e.createFromSelector('script[src="scripts-1.js"]')
+          registerFixture(style)
+          document.head.append(style)
+
+          fixture('.container', text: 'old container text')
+          up.render('.container', location: '/path', history: true, document: """
+            <html>
+              <body>
+                <div class='container'>
+                  new container text
+                </div>
+              </body>
+            </html>
+          """)
+
+          await wait()
+
+          expect('.container').toHaveText('new container text')
+
+          expect(listener).not.toHaveBeenCalled()
 
       describe 'fragment source', ->
 

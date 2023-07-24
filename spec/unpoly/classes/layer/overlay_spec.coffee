@@ -118,6 +118,42 @@ describe 'up.Layer.Overlay', ->
       expect(up.layer.isRoot()).toBe(true)
       expect(location.href).toMatchURL(jasmine.locationBeforeExample)
 
+    fit "restores the parent layer's history-related <meta> and <link> elements", ->
+      e.affix(document.head, 'meta[name="description"][content="old description"]')
+
+      up.layer.open(
+        location: '/modal-location'
+        history: true
+        target: '.element',
+        html: """
+          <html>
+            <head>
+              <link rel='canonical' href='/new-canonical'>
+              <meta name='description' content='new description'>
+            </head>
+            <body>
+              <div class='element'>
+                overlay text
+              </div>
+            </body>
+          </html>
+        """
+      )
+
+      await wait()
+
+      expect(up.layer.isOverlay()).toBe(true)
+      expect(up.layer.history).toBe(true)
+      expect(document.head).not.toHaveSelector('meta[name="description"][content="old description"]')
+      expect(document.head).toHaveSelector('meta[name="description"][content="new description"]')
+
+      up.layer.current.accept()
+
+      await wait()
+
+      expect(document.head).not.toHaveSelector('meta[name="description"][content="new description"]')
+      expect(document.head).toHaveSelector('meta[name="description"][content="old description"]')
+
     it "does not restore the parent layer's location if the parent layer does not render history", ->
       up.history.config.enabled = true
 
