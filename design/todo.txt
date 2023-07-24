@@ -4,6 +4,22 @@ Remaining V3 tasks
 - Do a podcast
 
 
+Head reconciliation
+===================
+
+- migrate: Prevent meta[up-hungry]
+  - Or if we merge the head before the fragment it will not matter
+- We may have examples for <link rel=canonical> in [up-hungry][up-if-history]
+- Deprecate { title } option
+- Deprecate X-Up-Title
+- TODO: Docs
+  - For up.head
+  - For up.head.config
+  - For [up-meta]
+  - For [up-asset]
+  - For up:assets:changed
+
+
 Priority
 =========
 
